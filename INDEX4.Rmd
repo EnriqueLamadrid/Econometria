@@ -1,0 +1,108 @@
+---
+title: "Untitled"
+author: "J. enrique lamadrid Bazán"
+date: "10 de octubre de 2020"
+output: html_document
+---
+title: "Ejercicio de ventas de tiendas Andys Carter-Hill et.al."
+author: "Jorge Enrique Lamadrid Bazán"
+date: "10/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require(devtools)) {install.packages('devtools')
+  library(devtools)} else {library(devtools)}
+if (!require(PoEdata)) {install.packages('PoEdata')
+  library(PoEdata)} else {library(PoEdata)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+if (!require(plotly)) {install.packages('plotly')
+  library(plotly)} else {library(plotly)}
+if (!require(forecast)) {install.packages('forecast')
+  library(forecast)} else {library(forecast)}
+if (!require(tseries)) {install.packages('tseries')
+  library(tseries)} else {library(tseries)}
+if (!require(kableExtra)) {install.packages('kableExtra')
+  library(kableExtra)} else {library(kableExtra)}
+if (!require(MASS)) {install.packages('MASS')
+  library(MASS)} else {library(MASS)}
+
+```
+
+# Introducción
+ 
+En este ejercicio se hará una regresión múltiple con el ejemplo de Carter-Hill et. al. (2011) de las ventas de la tienda Andy's, dado el precio promedio de los artículos vendidos y el gasto en publicidad. Todo medido en dólares de los Estados Unidos. Se exponen las primeras 10 filas de la tabla de datos:
+
+```{r tabla1, echo=FALSE, warning=FALSE, message=FALSE}
+data(andy)
+kable(andy[1:5,],caption="Tabla de datos de las ventas mensuales de Andy's")%>%kable_styling(font_size = 10,bootstrap_options = c("striped", "hover"))%>%add_footnote("Cifras en miles de USD.")
+```
+
+La idea es hacer una ecuación que estime la media condicionada de las ventas:
+
+\begin{equation}
+\widehat{ventas}_t=\alpha+\beta_1\cdot precio_t+\beta_2 \cdot publicidad_t
+\end{equation}
+
+#Modelo de regresión
+Regresión con constante $\alpha$:
+
+
+```{r regresion1}
+eq="sales~price+advert"
+regresion1=lm(eq,data=andy)
+summary(regresion1)
+```
+
+```{r regresion2}
+er="sales~price"
+regresion2=lm(er,data=andy)
+summary(regresion2)
+
+
+````
+```{r regresion3}
+es="sales~advert"
+regresion3=lm(es,data=andy)
+summary(regresion3)
+```
+
+
+
+
+
+```{r regauto, results='asis', echo=FALSE, error=FALSE}
+regresion1=lm("sales~price+advert", data=andy)
+stargazer(regresion1, regresion2, regresion3, type= "html", out="tabla_regresion1.doc",
+          title = "Tabla Comparativa de regresión Ventas~Price+advert",
+          dep.var.labels=c("sales~price+advert", "sales~price", "sales~advert"), 
+          report = "vc*",
+          covariate.labels = c("Beta","Alpha"))
+          
+
+```
+
+
+
+```{r aike}
+aike= AIC(regresion1)
+```
+
+```{r aike2}
+aike2= AIC(regresion2)
+```
+
+
+```{r aike3}
+aike3= AIC(regresion3)
+```
+
+
+# Conclusiones
+
+Una vez realizadas las pruebas con el crieterio de información akaike, se confirma el resultado obtenido con la r cuadrada ajustada en relación a la aplicación del primer modelo de regresión que es el que mejor explica el resultado de las ventas, ya que el criterio nos da el menor porcentaje con el primer modelo de 455.73 versus el segundo modelo en que se elimina la variable de precio y que da como resultado un 461.10. Y finalmente el modelo de regresión en que se elimina a la publicidad nos da un valor de 494.54 . 

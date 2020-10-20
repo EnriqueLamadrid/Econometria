@@ -1,0 +1,289 @@
+---
+title: "Ejercicio de modelado de precios y precio por metro cudrado (modelos no lineales)."
+author: "Jorge Enrique Lamadrid Bazán"
+date: "10/18/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require(devtools)) {install.packages('devtools')
+  library(devtools)} else {library(devtools)}
+if (!require(PoEdata)) {install.packages('PoEdata')
+  library(PoEdata)} else {library(PoEdata)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+if (!require(plotly)) {install.packages('plotly')
+  library(plotly)} else {library(plotly)}
+if (!require(forecast)) {install.packages('forecast')
+  library(forecast)} else {library(forecast)}
+if (!require(tseries)) {install.packages('tseries')
+  library(tseries)} else {library(tseries)}
+if (!require(kableExtra)) {install.packages('kableExtra')
+  library(kableExtra)} else {library(kableExtra)}
+if (!require(qpcR)) {install.packages('qpcR')
+  library(qpcR)} else {library(qpcR)}
+```
+
+# Introducción
+ 
+En este ejercicio se hará una regresión múltiple con el ejemplo de Carter-Hill et. al. (2011) de la relación entre el precio de una casa (price) y la superficie en pies cuadrados (sqft). *A priori* se sabe que el precio de las casas del estrato "residencial" tienen un precio mayor poe metro cuadrado. Esto lleva a potenciales no linealidades en el comportamiento de los precios. Veamos los primeros 10 datos de entrada:
+
+```{r tabla1, echo=FALSE, warning=FALSE, message=FALSE}
+data(br)
+kable(br[1:10,],caption="Tabla de datos deprecios de casas y metros cuadrados")%>%kable_styling(font_size = 10,bootstrap_options = c("striped", "hover"))%>%add_footnote("Cifras en USD.")
+```
+
+Ahora veamos la comparación entre sqft como regresora y price como regresada (se agrega la recta de regresión y su intervalo de fluctuación al 95% de confianza)
+
+```{r gráfica1}
+graf1=ggplot(aes(x=sqft,y=price),data=br)+geom_point()+geom_smooth(method="lm")
+graf1
+```
+
+Como se aprecia, el modelo no es lineal. Por tanto, la idea es hacer una ecuación que estime la media condicionada del precio de las casas considerando las siguientes transformaciones de datos:
+
+1. $price_i=\alpha+\beta\cdot sqrft^2_i+\varepsilon_i$
+2. $ln(price_i)=\alpha+\beta\cdot sqrft_i+\varepsilon_i$
+
+# Análisis
+# Modelo con los datos de precio y pies cuadrados originales
+
+Se presenta la regresión del modelo original en el que se relaciona tanto los pies cuadrados como el precio:
+
+```{r regresionini, echo=TRUE, result="asis",warning=FALSE, error=FALSE}
+
+#Corremos la regresión de la primera ecuación
+
+eqini="price~sqft"
+regini=lm(eqini,data=br)
+
+#Se calcula la función de log-verosimilitud (LLF):
+
+LLFvector=c("LlF",round(logLik(regini),4))
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(regini),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(regini),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(regini)+2*(length(regini$coefficients)*(log(log(nrow(br))))),4)
+     
+stargazer(regini, type="text",report="vc*p",add.lines=list(LLFvector,AICvector,BICvector,HQvector))
+          
+
+```
+
+
+
+
+
+Iniciamos con la primera transformación tentativa(se deja true en echo para que aparezca el código o chunck en la página del resultado, AUNQUE NORMALMENTE SE DEBE PONER FALSE PARA QUE NO APAREZCA)
+
+```{r regresion1, echo=TRUE, result="asis",warning=FALSE, error=FALSE}
+
+#Corremos la regresión de la primera ecuación
+
+eq1="log(price)~sqft"
+reg1=lm(eq1,data=br)
+
+#Se calcula la función de log-verosimilitud (LLF):
+
+LLFvector=c("LlF",round(logLik(reg1),4))
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(reg1),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(reg1),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(reg1)+2*(length(reg1$coefficients)*(log(log(nrow(br))))),4)
+     
+stargazer(reg1, type="text",report="vc*p",add.lines=list(LLFvector,AICvector,BICvector,HQvector))
+          
+
+```
+
+Para este segundo modelo, veamos como cambia la gráfica con la transformación de los datos ($ln(precio$):
+
+```{r gráfica2}
+graf2=ggplot(aes(x=sqft,y=log(price)),data=br)+geom_point()+geom_smooth(method="lm")+
+  ylab("ln(price)")+xlab("sqft")
+graf2
+```
+
+Como se puede apreciar, el transformar el precio en su logaritmo natural,hace que el comportamiento de la gráfica de dispersión sea *mas lineal* y por tanto se ajusta mejor el modelo de regresión lineal. Esto en relación a la gráfica con los datos originales.
+
+De manera complementaria, se aprecia que los criterios de información y la función LLF tienen mejores valores de ajuste en este modelo que en el modelo original donde no se transforma el precio. Por tanto se concluye, que este modelo es mejor que el original.
+
+Ahora, si queremos hacer el pronóstico del precio de una casa, dados los pies cuadrados que esta tiene, debemos hacer simplemente la siguiente operación:
+
+$$\widehat{precio}_t=e^{\alpha+\beta\cdot sqft}$$
+
+En pocas palabras se hace un pronóstio con la regresión, sustituyendo sqft y este valor pronosticado será el exponente del número e.Supongamos que una casa tiene una superficie de 7,577 pies cuadrados. Su pronóstico de precio sería el siguiente:
+
+$$\widehat{precio}_t=e^{\10.83+\0.0004\cdot 7,577}$$
+
+```{r Valor del pie cuadrado2}
+
+pronostico=exp(reg1$coefficients[1]+(reg1$coefficients[2]*1))
+pronostico
+
+```
+
+```{r }
+
+pronostico=exp(reg1$coefficients[1]+(reg1$coefficients[2]*7577))
+pronostico
+
+```
+
+
+Ahora se realizará la regresión cuadrática de los pies cuadrados:
+
+```{r reg2, echo=TRUE, result="asis",warning=FALSE, error=FALSE}
+
+# Corremos la regresión de la segunda ecuación
+
+eq2="price~sqft+I(sqft^2)"
+reg2=lm(eq2,data=br)
+
+#Se calcula la función de log-verosimilitud (LLF):
+
+LLFvector=c("LlF",round(logLik(reg2),4))
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(reg2),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(reg2),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(reg2)+2*(length(reg2$coefficients)*(log(log(nrow(br))))),4)
+     
+stargazer(reg2, type="text",report="vc*p",add.lines=list(LLFvector,AICvector,BICvector,HQvector))
+          
+
+```
+
+
+Para este tercer modelo, veamos como cambia la gráfica con la transformación de los datos ($exp(sqft$):
+
+```{r gráfica3}
+graf3=ggplot(aes(x=sqft^2,y=(price)),data=br)+geom_point()+geom_smooth(method="lm")+
+  ylab("(price)")+xlab("sqft^2")
+graf3
+```
+
+
+#Se calcula la función de log-verosimilitud (LLF):
+```{r log-verosimilitud}
+LLFvector=c("LlF",round(logLik(regini),4),round(logLik(reg1),4),round(logLik(reg2),4))
+```
+
+
+# Se calcula el criterio de Akaike para cada modelo y se pone en un vector que contenga el título AIC y los 4 criterios:
+
+```{r akaike}
+AICvector=c("Akaike", round(AIC(regini),4),round(AIC(reg1),4),round(AIC(reg2),4))
+
+```
+
+# Se calcula el criterio de Schwarz para cada modelo y se pone en un vector que contenga el título BIC y los 4 criterios:
+
+```{r Schwarz}
+BICvector=c("Schwarz", round(BIC(regini),4),round(BIC(reg1),4),round(BIC(reg2),4))
+
+
+```
+
+# Se calcula el criterio de Hannan-Quinn para cada modelo y se pone en un vector que contenga el título HQ y los 4 criterios:
+
+```{r Hannan Quin}
+HQvector=c("HQ",
+     round(-2*logLik(regini)+2*(length(regini$coefficients)*(log(log(nrow(br))))),4),
+     round(-2*logLik(reg1)+2*(length(reg1$coefficients)*(log(log(nrow(br))))),4),
+     round(-2*logLik(reg2)+2*(length(reg2$coefficients)*(log(log(nrow(br))))),4)
+)
+     
+```
+
+
+
+#Resumen de análisis de los 3 modelos
+
+```{r regresion, results='asis', echo=TRUE, warning=FALSE, message=FALSE}
+
+stargazer(regini,reg1,reg2,type="text",report="vc*p",out="Modelos de regresión con  datos de precio y pies cuadrados originales, logaritmo en precio, pies cuadrados al cuadrado.doc",
+          add.lines=list(LLFvector,AICvector,BICvector,HQvector))
+  
+
+```
+
+
+Análisis:
+
+Como se puede apreciar, el transformar el precio en su logaritmo natural,hace que el comportamiento de la gráfica de dispersión sea *mas lineal* y por tanto se ajusta mejor el modelo de regresión lineal. Esto en relación a la gráfica con los datos originales.
+
+De manera complementaria, se aprecia que los criterios de información y la función LLF tienen mejores valores de ajuste en este modelo que en el modelo original donde no se transforma el precio. Por tanto se concluye, que este modelo es mejor que el original.
+
+Por otra parte al desarrollar la ecuación número 2 en la que se lleva a cabo la elevación al cuadrado a la variable regresora (sqft) a través de una regresión polinomial, el resultado ajusta mejor que el modelo original, pero no que el modelo uno en el que se transformaron los datos de precio en su logaritmo natural.
+
+Pronóstico con logaritmo natural:
+
+Ahora, si queremos hacer el pronóstico del precio de una casa, dados los pies cuadrados que esta tiene, debemos hacer simplemente la siguiente operación:
+
+$$\widehat{precio}_t=e^{\alpha+\beta\cdot sqft}$$
+
+En pocas palabras se hace un pronóstico con la regresión, sustituyendo sqft y este valor pronosticado será el exponente del número e.Supongamos que una casa tiene una superficie de 7,577 pies cuadrados. Su pronóstico de precio sería el siguiente:
+
+$$\widehat{precio}_t=e^{\10.83+\0.0004\cdot 7,577}$$
+
+Pronóstico de precio con elevación al cuadrado de la variable regresora (sqft).
+
+```{r Valor del pie cuadrado3}
+
+pronostico=exp(reg2$coefficients[1]+(reg2$coefficients[2]*1))
+pronostico
+
+```
+
+```{r }
+
+pronostico=exp(reg2$coefficients[1]+(reg2$coefficients[2]*7577))
+pronostico
+
+```
+
+# Conclusiones
+
+Después de haber complementado el ejercicio comenzado en clase sobre la búsqueda del mejor modelo que explique la relación de precio-pies cuadrados de un bien inmueble, se llega a la conclusión que el modelo que presenta una mejor bondad de ajuste es el modelo en que se utiliza el logaritmo natural a la variable regresada (precio), ya que como se puede observar en los tres criterios de información su calificación es menor a la de los otros dos modelos (original y elevación al cuadrado de la variable regresora).
+
+Lo anterior se comprueba al realizar el pronóstico de precio de un inmueble, en el que solo se puede lograr con el modelo uno uno.

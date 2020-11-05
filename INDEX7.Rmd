@@ -1,0 +1,216 @@
+---
+title: "Ejercicio 2 en clase de multicolinealidad"
+author: "Jorge Enrique Lamadrid Bazán"
+date: "11/05/2020"
+output: 
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+lang: es
+font: times new roman 
+---
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { 
+      equationNumbers: { 
+            autoNumber: "all",
+            formatNumber: function (n) {return n}
+      } 
+  }
+});
+</script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+if (!require(devtools)) {install.packages('devtools')
+  library(devtools)} else {library(devtools)}
+if (!require(openxlsx)) {install.packages('openxlsx')
+  library(openxlsx)} else {library(openxlsx)}
+if (!require(ggplot2)) {install.packages('ggplot2')
+  library(ggplot2)} else {library(ggplot2)}
+if (!require(kableExtra)) {install.packages('kableExtra')
+  library(kableExtra)} else {library(kableExtra)}
+if (!require(knitr)) {install.packages('knitr')
+  library(knitr)} else {library(knitr)}
+if (!require(captioner)) {install.packages('captioner')
+  library(captioner)} else {library(captioner)}
+if (!require(tseries)) {install.packages('tseries')
+  library(tseries)} else {library(tseries)}
+if (!require(olsrr)) {install.packages('olsrr')
+  library(olsrr)} else {library(olsrr)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+
+
+```
+
+# Introducción
+
+En este ejercicio se va acorrer un modelo de regresión en el que se va a modelar la venta de coches nuevos desde 1971 a 1986. Para esto se utilizarán las siguientes variables:
+
+- $Autos$ (regresada) es el número índice base 100 a 1967 de autos vendidos.
+- $INPCA$ es el índice de precios al consumidor de autos nuevos.
+- $INPCG$ es el índice de precios al consumidor general.
+- $Ingreso$ es el ingreso personal (en miles de millones de USD).
+- $Tasa$ es la tasa de interés de créditos a automóviles.
+- $Empleados$ Es el número de empleados (no militares y en miles de personas)
+
+Los Datos (primeras 10 columnas) se presentan a continuación:
+         
+```{r Datos, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, results='asis'}
+Datos=read.xlsx("https://www.dropbox.com/s/xx4fwei3pu9sx7p/ejercicio2.xlsx?raw=1")
+kable(Datos[1:10,])
+```
+
+Con estos datos y la secuencia de variables previamente mencionadas, por favor corra el modelo de regresión. Determine si existen indicios de multicolinealidad con la prueba de la $R^2_{ajustada}$. Si no, con las correlaciones y los factores de inflación de varianza.
+
+Si detecta multicolinealidad, resuélvala y llegue al mejor modelo que se ajuste a los datos. Esto para tener un modelo final de pronóstico de unidades vendidas (automóviles).
+
+Por favor presente su análisis detallado en el desarrollo de sus pruebas y sus conclusiones y explicación del modelo final. Esto para que le quede claro a una directora o director de ventas de una compañía del rubro automovilístico.
+
+
+Como punto de partida, correremos la regresión con la siguiente forma funcional:
+
+$$\text{Autos}=\alpha+\beta_1\cdot\text{INPCA} +\beta_2\cdot\text{INPCG}+\beta_3\cdot \text{Ingreso}+\beta_4\cdot \text{Tasa}+\beta_5\cdot \text{Empleados}+\varepsilon_i$$
+A continuación se corre la primera regresión con las regresoras originales, así como la prueba VIF para evaluar el grado de multicolinealidad.
+
+```{r regresion1}
+eq1="Autos~INPCA+INPCG+Ingreso+Tasa+Empleados"
+regres1=lm(eq1,data=Datos)
+stargazer(regres1,type="text",report="vc*p")
+
+```
+
+De la anterior regresión se detecta una $R^2-{ajustada}$ altade 0.632 , así como 4 regresoras son NO significativas junto con la constante. La prueba de Klein sugiere que esto es evidencia de una potencial multicolinealidad.
+
+Al evidenciarse la mulcolinealidad se debe de utilizar la técnica "Factores de Inflación de Varianza (FIV)"
+
+```{r VIF1}
+vif1=ols_vif_tol(regres1)
+vif1
+
+```
+
+Con el resultado del VIF, nos podemos dar cuenta de las variables más colineables:
+
+1.- INPCG
+2.- INPCA
+3.- INGRESO
+4.- EMPLEADOS
+
+Por lo tanto se procederá a eliminar a cada una de las regresoras de la regresión original y con ello ir evaluando el comportamiento de la misma a partir del cambio.
+
+```{r regresion2}
+eq2="Autos~INPCA+Ingreso+Tasa+Empleados"
+regres2=lm(eq2,data=Datos)
+stargazer(regres2,type="text",report="vc*p")
+
+```
+
+```{r VIF2}
+vif2=ols_vif_tol(regres2)
+vif2
+
+```
+
+Después de haber retirado la regresora del "INPCG" y correr nuevamente la prueba FIV sin esta variable, nos podemos percatar que sigue existiendo 3 variables un índice alto de colinealinidad, por lo que se realizará una tercera regresión eliminando ahora a la regresora con el índice más alto de las que quedan, en este caso será el Ingreso.
+
+
+```{r regresion3}
+eq3="Autos~INPCA+Tasa+Empleados"
+regres3=lm(eq3,data=Datos)
+stargazer(regres3,type="text",report="vc*p")
+
+```
+
+Y se corre la prueba VIF para la tercera regresión:
+
+```{r VIF3}
+vif3=ols_vif_tol(regres3)
+vif3
+
+```
+
+No obstante del resultado anterior en el que se mejora el VIF al haber desconsiderado 
+al Ingreso, se correrá una cuarta regresión en la que se eliminará a la regresora Empleados y se dejará al "INPCA" y a la variable "Tasa", ya que en el resultado del VIF es la de mayor valor de multicolinealidad.
+
+```{r regresion4}
+eq4="Autos~INPCA+Tasa"
+regres4=lm(eq4,data=Datos)
+stargazer(regres4,type="text",report="vc*p")
+
+```
+
+
+```{r VIF4}
+vif4=ols_vif_tol(regres4)
+vif4
+
+```
+
+
+
+```{r regresion5}
+eq5="Autos~Empleados+Tasa"
+regres5=lm(eq5,data=Datos)
+stargazer(regres5,type="text",report="vc*p")
+
+```
+
+
+```{r VIFe}
+vif5=ols_vif_tol(regres5)
+vif5
+
+```
+
+
+
+
+Después de haber corrido la regresión 4 en la que se elimina a la regresora "Empleados", así como su correspondiente prueba VIF, se llega a la conclusión de que no obstante de quedar la regresora INPCA como no significativa en el modelo de regresión, sí contribuye a tener el modelo con menor  grado de multicolinealidad.
+
+Como corroboración de lo anterior, se corrió una 5a. regresión en la que se utilizaron como regresoras "Empleados y Tasa" y aunque la multicolinealidad es mínima, el resultado en la prueba VIF de la 4a. regresión nos da como resultado una multicolinealidad todavía menor. 
+
+
+Sin embargo, como prueba definitoria para decidir que regresión es la más adecuada, se aplicarán los criterios de bondad de ajuste de log-verosimilitud, Akaike, Schuartz y Hannan-Quin para las 5 regresoras:
+
+
+#Se calculan los criterios de bondad de ajuste de log-verosimilitud, Akaike, Schwartz y Hannan-Quinn, para las cinco regresiones.
+
+```{r regresion, results='asis', echo=FALSE, warning=FALSE, error=FALSE}
+
+LLFvector=c("LLF", round(logLik(regres1),4),round(logLik(regres2),4),round(logLik(regres3),4),round(logLik(regres4),4),round(logLik(regres5),4))
+
+AICvector=c("Akaike",round(AIC(regres1),4),round(AIC(regres2),4),round(AIC(regres3),4),round(AIC(regres4),4),round(AIC(regres5),4))
+
+BICvector=c("Schwarz",round(BIC(regres1),4),round(BIC(regres2),4),round(BIC(regres3),4),round(BIC(regres4),4),round(BIC(regres5),4))
+
+HQvector=c("H-Q",
+round(-2*logLik(regres1)+2*(length(regres1$coefficients)*log(log(nrow(Datos)))),3), round(-2*logLik(regres2)+2*(length(regres2$coefficients)*log(log(nrow(Datos)))),3), round(-2*logLik(regres3)+2*(length(regres3$coefficients)*log(log(nrow(Datos)))),3),
+round(-2*logLik(regres4)+2*(length(regres4$coefficients)*log(log(nrow(Datos)))),3),
+round(-2*logLik(regres5)+2*(length(regres5$coefficients)*log(log(nrow(Datos)))),3))
+
+stargazer(regres1, regres2, regres3,regres4, regres5,type = "html", report = "vc*p", title = "Comparación de disminución de multicolinealidad", add.lines =list (LLFvector, AICvector,BICvector,HQvector) )
+
+```
+
+# Conclusiones:
+
+Después de realizar el ejercicio sobre detección de multicolinealinidad en las regresoras señaladas al inicio, y basado en las distintas regresiones con sus correspondientes pruebas VIF, así como la aplicación de sus correspondientes pruebas con los criterios de información de log-verosimilitud Akaike, Schuartz y Hannan-Quin, se ha logrado determinar que la regresión que mejor explica el modelo es la número 4 y que a continuación se detalla:
+
+$$\text{Autos}=\alpha+\beta_1\cdot\text{Tasa} +\beta_2\cdot\text{Empleados}+\varepsilon_i$$
+
+Lo anterior una vez validado el que con este modelo se logra la significancia estadística con cada una de las regresoras participantes, además de mantener un   nivel de explicación por parte de la $R^2-{ajustada}$ aceptable del 0.368 así como un factor de inflación de varanza del 1.4034. 
+
+Aunado a lo anterior, se aplicaron los criterios de bondad de ajuste de log-verosimilitud, Akaike, Schwarz y Hannan-Quinn para las 5 regresiones, los cuales como se ha señalado en otros ejercicios, estos criterios  toman en cuenta el resultado menor, y en este criterio va implicito no sólo la estimación de la bondad de ajuste, además los tres modelos penalizan la cantidad de parámetros de la regresión, es decir, toman en cuenta la sencillez del modelo.
+
+Finalmente me permito comentar que para llevar a cabo un incremento en las ventas de autos, basado en las pruebas antes realizadas, en la medida que se incremente la fuerza de ventas representaría un 0.059 más la posibilidad de venta. Por lo que respecta al factor de la tasa, en la medida que esta se incremente, repercutiría en el desplazamiento de las unidades.
+
+Jorge Enrique Lamadrid Bazán
+
+
+
+

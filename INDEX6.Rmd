@@ -1,0 +1,186 @@
+---
+title: "Tarea Ejercicio 1 en clase de multicolinealidad"
+author: "J. Enrique Lamadrid Bazán"
+date: "11/04/2020"
+output: 
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+  word_document:
+    toc: yes
+    toc_depth: 3
+  pdf_document:
+    number_sections: yes    
+    toc: yes
+    toc_depth: 3
+    fig_caption: yes
+fontsize: 12pt
+lang: es
+font: times new roman 
+
+---
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { 
+      equationNumbers: { 
+            autoNumber: "all",
+            formatNumber: function (n) {return n}
+      } 
+  }
+});
+</script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if (!require(devtools)) {install.packages('devtools')
+  library(devtools)} else {library(devtools)}
+if (!require(openxlsx)) {install.packages('openxlsx')
+  library(openxlsx)} else {library(openxlsx)}
+if (!require(ggplot2)) {install.packages('ggplot2')
+  library(ggplot2)} else {library(ggplot2)}
+if (!require(olsrr)) {install.packages('olsrr')
+  library(olsrr)} else {library(olsrr)}
+if (!require(knitr)) {install.packages('knitr')
+  library(knitr)} else {library(knitr)}
+if (!require(captioner)) {install.packages('captioner')
+  library(captioner)} else {library(captioner)}
+if (!require(tseries)) {install.packages('tseries')
+  library(tseries)} else {library(tseries)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+if (!require(PoEdata)) {install.packages('PoEdata')
+  library(PoEdata)} else {library(PoEdata)}
+if (!require(kableExtra)) {install.packages('kableExtra')
+  library(kableExtra)} else {library(kableExtra)}
+
+
+table_nums <- captioner(prefix = "")
+# Se cargan los datos en el archivo si este se encuentra en la misma carpeta que el presente Rmarkdown:
+
+
+```
+
+# Introducción
+
+En este ejercicio vamos a trabajar con la detección de la multicolinealidad y de su corrección. Para esto, trabajaremos con los datos del estudio de Longley presentado en [@Gujarati2010]. Como punto de partida, correremos la regresión con la siguiente forma funcional:
+
+$$\text{Deflactor_PIB}=\alpha+\beta_1\cdot +\beta_2\cdot\text{personas_trabajando}_{i} \text{PIB_nominal}+\beta_3\cdot \text{Trabajadores_notrabajo}+\beta_4\cdot \text{Militares}+\beta_5\cdot \text{No_PEA}+\varepsilon_i$$
+
+```{r Datos}
+Datos=read.xlsx("https://www.dropbox.com/s/qa38xpuby0p8u48/longley.xlsx?raw=1")
+
+```
+
+
+```{r regresion1}
+eq1="personas_trabajando~Deflactor_PIB+PIB_Nominal+Trabajadores_notrabajo+Militares+no_PEA"
+regres1=lm(eq1,data=Datos)
+stargazer(regres1,type="text",report="vc*p")
+
+```
+
+De la anterior regresión se detecta una $R^2-{ajustada}$ alta, pero casi todas las regresoras son NO significativas. La prueba de Klein sugiere que esto es evidencia de una potencial multicolinealidad.
+
+
+
+Al evidenciarse la mulcolinealidad se debe de utilizar la técnica "Factores de Inflación de Varianza (FIV)"
+
+```{r VIF1}
+vif1=ols_vif_tol(regres1)
+vif1
+
+```
+
+Con el resultado del VIF, nos podemos dar cuenta de las variables más colineables:
+
+1.- PIB_Nominal
+2.- no_PEA
+3.- Deflactor_PIB
+
+Por lo tanto se procederá a eliminar a cada una de las regresoras de la regresión original y con ello ir evaluando el comportamiento de la misma a partir del cambio.
+
+```{r regresion2}
+eq2="personas_trabajando~Deflactor_PIB+Trabajadores_notrabajo+Militares+no_PEA"
+regres2=lm(eq2,data=Datos)
+stargazer(regres2,type="text",report="vc*p")
+
+```
+
+```{r VIF2}
+vif2=ols_vif_tol(regres2)
+vif2
+
+```
+
+Después de haber retirado la regresora del "PIB Nominal" y correr nuevamente la prueba FIV sin esta variable, nos podemos percatar que sigue existiendo 2 variables un índice alto de colinealinidad, por lo que se realizará una tercera regresión eliminando ahora a la regresora con el índice más alto de las que quedan, en este caso será el Deflactor_PIB.
+
+
+```{r regresion3}
+eq3="personas_trabajando~Trabajadores_notrabajo+Militares+no_PEA"
+regres3=lm(eq3,data=Datos)
+stargazer(regres3,type="text",report="vc*p")
+
+```
+
+Y se corre la prueba VIF para la tercera regresión:
+
+```{r VIF3}
+vif3=ols_vif_tol(regres3)
+vif3
+
+```
+
+No obstante del resultado anterior en el que se mejora el VIF al haber desconsiderado 
+al Deflactor_del PIB, se correrá una cuarta regresión en la que se eliminará a la regresora no_PEA y se dejará al Deflactor_del PIB nuevamente, ya que en el resultado de la regresión 3, la regresora de Militares se presenta como no significativa.
+
+```{r regresion4}
+eq4="personas_trabajando~Deflactor_PIB+Trabajadores_notrabajo+Militares"
+regres4=lm(eq4,data=Datos)
+stargazer(regres4,type="text",report="vc*p")
+
+```
+
+
+```{r VIF4}
+vif4=ols_vif_tol(regres4)
+vif4
+
+```
+
+Después de haber corrido la regresión 4 en la que se elimina a la regresora no_PEA, así como su correspondiente prueba VIF, se llega a la conclusión de que este es el mejor modelo de regresión en el que se elimina la multicolinealidad, además de observar que las regresoras que permanecieron en el modelo son significativas a diferencia de las anteriores regresiones. Aunado a lo anterior, se observa una R ajustada con un alto valor de explicación de 0.963 .
+
+Sin embargo, como prueba definitoria para decidir que regresión es la más adecuada, se aplicarán los criterios de bondad de ajuste de log-verosimilitud, Akaike, Schuartz y Hannan-Quin para las 4 regresoras:
+
+
+#Se calculan los criterios de bondad de ajuste de log-verosimilitud, Akaike, Schwarz y Hannan-Quinn, para las cuatro regresiones.
+
+```{r regresion, results='asis', echo=FALSE, warning=FALSE, error=FALSE}
+
+LLFvector=c("LLF", round(logLik(regres1),4),round(logLik(regres2),4),round(logLik(regres3),4),round(logLik(regres4),4))
+
+AICvector=c("Akaike",round(AIC(regres1),4),round(AIC(regres2),4),round(AIC(regres3),4),round(AIC(regres4),4))
+
+BICvector=c("Schwarz",round(BIC(regres1),4),round(BIC(regres2),4),round(BIC(regres3),4),round(BIC(regres4),4))
+
+HQvector=c("H-Q",
+round(-2*logLik(regres1)+2*(length(regres1$coefficients)*log(log(nrow(Datos)))),3), round(-2*logLik(regres2)+2*(length(regres2$coefficients)*log(log(nrow(Datos)))),3), round(-2*logLik(regres3)+2*(length(regres3$coefficients)*log(log(nrow(Datos)))),3),
+round(-2*logLik(regres4)+2*(length(regres4$coefficients)*log(log(nrow(Datos)))),3))
+
+stargazer(regres1, regres2, regres3,regres4, type = "html", report = "vc*p", title = "Comparación de disminución de multicolinealidad", add.lines =list (LLFvector, AICvector,BICvector,HQvector) )
+
+```
+
+# Conclusiones:
+
+A partir del ejercicio sobre detección de multicolinealinidad en las regresoras iniciado en clase, se ha logrado terminar y concluir que el mejor modelo de regresión a utilizar después de haber corrido la prueba de klein para cada una de las 4 regresiones es el modelo:
+
+$$\text{personas_trabajando}=\alpha+\beta_1\cdot \text{Deflactor_PIB}+\beta_2\cdot\text{Trabajadores_notrabajo}+\beta_3\cdot \text{Militares}+\varepsilon_i$$
+
+Lo anterior una vez validado el que con este modelo se logra la significancia estadística con cada una de las regresoras participantes, además de mantener un alto  nivel de explicación por parte de la $R^2-{ajustada}$ del 0.963 . 
+
+Para validar la inferencia anterior, se aplicaron los criterios de bondad de ajuste de log-verosimilitud, Akaike, Schwarz y Hannan-Quinn para las 4 regresiones, los cuales como se ha señalado en otros ejercicios, estos criterios  toman en cuenta el resultado menor, y en este criterio va implicito no sólo la estimación de la bondad de ajuste, además los tres modelos penalizan la cantidad de parámetros de la regresión, es decir, toman en cuenta la sencillez del modelo, lo cual se puede observar en la tabla arriba desarrollada.
+
+
+

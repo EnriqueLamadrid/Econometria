@@ -1,0 +1,319 @@
+---
+title: "Ejercicio 1 en clase de autocorrelación o correlación serial"
+author: "Dr. Oscar De la Torre"
+date: "12/10/20)"
+output: html_document
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require(devtools)) {install.packages('devtools')
+  library(devtools)} else {library(devtools)}
+if (!require(PoEdata)) {install_git("https://github.com/ccolonescu/PoEdata")
+  library(PoEdata)} else {library(PoEdata)}
+if (!require(openxlsx)) {install.packages('openxlsx')
+  library(openxlsx)} else {library(openxlsx)}
+if (!require(ggplot2)) {install.packages('ggplot2')
+  library(ggplot2)} else {library(ggplot2)}
+if (!require(GGally)) {install.packages('GGally')
+  library(GGally)} else {library(GGally)}
+if (!require(ggpubr)) {install.packages('ggpubr')
+  library(ggpubr)} else {library(ggpubr)}
+if (!require(knitr)) {install.packages('knitr')
+  library(knitr)} else {library(knitr)}
+if (!require(captioner)) {install.packages('captioner')
+  library(captioner)} else {library(captioner)}
+if (!require(olsrr)) {install.packages('olsrr')
+  library(olsrr)} else {library(olsrr)}
+if (!require(tseries)) {install.packages('tseries')
+  library(tseries)} else {library(tseries)}
+if (!require(xts)) {install.packages('xts')
+  library(xts)} else {library(xts)}
+if (!require(lmtest)) {install.packages('lmtest')
+  library(lmtest)} else {library(lmtest)}
+if (!require(sandwich)) {install.packages('sandwich')
+  library(sandwich)} else {library(sandwich)}
+if (!require(estimatr)) {install.packages('estimatr')
+  library(estimatr)} else {library(estimatr)}
+
+table_nums <- captioner(prefix = "")
+# Se cargan los datos en el archivo si este se encuentra en la misma carpeta que el presente Rmarkdown:
+
+Datos=read.xlsx("https://www.dropbox.com/s/c3xvhu60r00he74/data.xlsx?raw=1")
+
+```
+
+
+# Introducción
+
+En este ejercicio se estudiará el modelo de la curva de Phillips que relaciona el nivel de inflación ($inf$) de un país, dado el nivel de desempleo ($u$) en el mismo. Esto nos lleva a calcular la siguiente regresión como punto de partida:
+
+$$\widehat{inf_i}=\alpha+\beta\cdot DU_i$$
+Por favor, con los datos del archivo data.xlsx corra la regresión, determine si existen los errores estudiados en clase y corriga los mismos de ser necesario. Dado su análisis, llegue a una propuesta final de modelo de regresión, basándose en la teoría que puede consultar en [esta liga no muy científica pero introductoria](https://en.wikipedia.org/wiki/Phillips_curve).
+
+## Gráfica de los datos
+
+A continuación se presenta la gráfica de los datos:
+
+```{r}
+graf1=ggplot()+geom_line(aes(x=as.Date(Fecha,origin="1899-12-30"),y=inf),data=Datos,colour="blue")+ggtitle("Histórico de la inflación (inf)")+ylab("Inflación")+xlab("Tiempo (trimestres)")
+graf2=ggplot()+geom_line(aes(x=as.Date(Fecha,origin="1899-12-30"),y=DU),data=Datos,colour="orange")+ggtitle("Histórico de la tasa de desempleo (DU)")+ylab("Tasa de desempleo")+xlab("Tiempo (trimestres)")
+
+fullchart=ggarrange(graf1,graf2,ncol=1,nrow=2,align="v")
+fullchart
+```
+
+# Se corre regresión uno:
+
+```{r regresion1}
+library(stargazer)
+eq1="inf~DU"
+regresion1=lm(eq1,data=Datos)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(regresion1)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(regresion1,~I(DU^2),data=Datos)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(regresion1,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(regresion1),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(regresion1),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(regresion1)+2*(length(regresion1$coefficients)*(log(log(nrow(Datos))))),4)
+     
+
+          
+
+stargazer(regresion1,type="text",report="vcs*",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector))
+
+```
+
+#En esta primera regresión señala que existe autocorrelación serial y que el modelo es homoscedástico. No existe multicolinealidad ya que solo existe una regresora. Por lo anterior se aplicará:
+
+La transformación de datos elevando potencia en la ecuación ya que se trata de un modelo no lineal.
+
+
+```{r regresion2}
+library(stargazer)
+eq2="inf~I(DU^2)"
+regresion2=lm(eq2,data=Datos)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(regresion2)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(regresion2,~I(DU^2),data=Datos)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(regresion2,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(regresion2),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(regresion2),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(regresion2)+2*(length(regresion2$coefficients)*(log(log(nrow(Datos))))),4)
+     
+
+          
+
+stargazer(regresion2,type="text",report="vcs*",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector))
+
+```
+
+
+#En esta segunda regresión señala que existe autocorrelación serial y que el modelo es homoscedástico. No existe multicolinealidad ya que solo existe una regresora, aunque mejoraron las mediciones de los criterios de información.  Por lo que ahora se aplicará:
+
+Regresión con tendencia (el tiempo como regresora)
+
+```{r regresion3}
+library(stargazer)
+eq3="inf~I(DU^2)+Fecha"
+regresion3=lm(eq3,data=Datos)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(regresion3)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(regresion3,~I(DU^2),data=Datos)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(regresion3,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(regresion3),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(regresion3),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(regresion3)+2*(length(regresion3$coefficients)*(log(log(nrow(Datos))))),4)
+     
+
+          
+
+stargazer(regresion3,type="text",report="vcs*",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector))
+
+```
+
+Después de haber corrido la regresión 3 se ha mejorado la autocorrelación muy cercana a 2 y se ha mantenido la homcedasticidad, no obstante de ello, se correrán primeras diferencias para saber si el modelo mejora.
+
+## Primeras diferencias
+
+Calculamos las primeras diferencias:
+
+
+```{r primdif}
+
+prim.diff=Datos[2:nrow(Datos),]-
+      Datos[1:nrow(Datos)-1,]   
+prim.diff$YEAR=Datos$Fecha[2:nrow(Datos)]
+```
+
+
+
+
+
+
+```{r regresion4}
+library(stargazer)
+eq4="inf~I(DU^2)"
+regresion4=lm(eq4,data=prim.diff)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(regresion4)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(regresion4,~I(DU^2),data=prim.diff)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(regresion4,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(regresion4),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(regresion4),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(regresion4)+2*(length(regresion4$coefficients)*(log(log(nrow(prim.diff))))),4)
+     
+
+          
+
+stargazer(regresion4,type="text",report="vcs*",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector))
+
+```
+
+Después de haber aplicado primeras diferencias al modelo, el indicador Durbin-Watson mejoró de manera sustancial a 2.79 y de igual manera prevalece la homocedasticidad, sin embargo, desapareció la significancia en las regresoras. Por lo que se aplicará los estimadores robustos de Newey-west para la regresión 3 y 4, buscando evaluar cual puede ser el mejor modelo.
+
+# Estimadores robustos de Newey-west:
+
+
+```{r NWregres3}
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(regresion3,vcov=NeweyWest(regresion3,verbose = T))
+
+nwregres
+
+```
+
+
+```{r NWregres4}
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(regresion4,vcov=NeweyWest(regresion4,verbose = T))
+
+nwregres
+
+```
+
+A partir del ejercicio sobre el modelo de la curva de Phillips que relaciona el nivel de inflación ($inf$) de un país, dado el nivel de desempleo, se llevó a cabo la metodología siguiente
+
+# metodología:
+
+Una vez realizada la primera regresión con los datos originales del modelo, se pudo observar la existencia del error de correlación serial, por lo que al tratarse de un modelo no lineal, se aplicó la transformación de regresoras al cuadrado. Una vez aplicado prevaleció la autocorrelación entre residuales.
+
+A partir de lo anterior, se corrió una 3a regresión en la que se aplicó la regresión con tendencia (el tiempo como regresora), logrando eliminar la autocorrelación en 1.64 y manteniendo un modelo homoscedástico superior al 5%, sin embargo, y con la finalidad de mejorar los niveles antes citados, se corre una regresión 4 en la que se aplican "primeras diferencias" al modelo, con el que se elimina la autocorrelación al dar un indicador de 2.79 aunque los indicadores de P-VALUE de White y de Prueba M-L se ven disminuído sus indicadores, por lo que se aplican los estimadores robustos de Newey-west a la regresión 3 y 4, buscando compararlos y estimar el mejor modelo.
+
+#resultados
+
+Después de haber corrido las pruebas conducentes al modelo de la curva de Phillips, así como haber aplicado las correcciones necesarias para eliminar el  error de correlación entre residuales, se concluye que el mejor modelo obtenido es el modelo 3 ( eq3="inf~I(DU^2)+Fecha") , ya que por tratarse de un modelo no lineal, hubo la necesidad de realizar una transformación cuadrática y adicional a esto, se utilizó la Regresión con tendencia (el tiempo como regresora) para con ello eliminar la correlación en su mejor expresión además de mantener significancia en las regresoras.
+
+
+#conclusiones.
+
+Como señala el Profesor de clase, no existe una secuencia establecida para solucionar los errores de correlación serial, heteroscedasticidad y multicolinelidad que puede presentar un modelo de regresión. Por ello, el  del uso de las diversas pruebas y herramientas a que se tien hasta la fecha conocimiento para eliminar estos errores en los modelos y con ello poder obtener indicadores precisos y fiables nos permitirá analizar y obtener de una manera más confiable resultados del análisis de los datos de un fenómeno.
+
+Sobre el ejercicio que acabos de analizar, el modelo:
+
+$$\widehat{inf_i}=\alpha+\beta\cdot DU_i+\beta\cdot Fecha$$
+
+representa su mejor expresión al quedar los principales indicadores como se menciona a continuación:
+
+Durbin-Watson            1.64212345529398      
+P-VALUE de White         0.904773986197816     
+Prueba M-L               0.126771862713559  
+
+lo cual nos da muestra de ser un modelo sin correlación serial, homoscedástico y sin colinelinidad, aunado a tener sus regresoras significativas.
+
+
+Enrique Lamadrid

@@ -1,0 +1,427 @@
+---
+title: "Ejercicio 1 en clase de autocorrelación o correlación serial"
+author: "Jorge Enrique Lamadrid Bazán"
+date: "12/17/20)"
+output: html_document
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require(devtools)) {install.packages('devtools')
+  library(devtools)} else {library(devtools)}
+if (!require(PoEdata)) {install_git("https://github.com/ccolonescu/PoEdata")
+  library(PoEdata)} else {library(PoEdata)}
+if (!require(openxlsx)) {install.packages('openxlsx')
+  library(openxlsx)} else {library(openxlsx)}
+if (!require(ggplot2)) {install.packages('ggplot2')
+  library(ggplot2)} else {library(ggplot2)}
+if (!require(GGally)) {install.packages('GGally')
+  library(GGally)} else {library(GGally)}
+if (!require(ggpubr)) {install.packages('ggpubr')
+  library(ggpubr)} else {library(ggpubr)}
+if (!require(knitr)) {install.packages('knitr')
+  library(knitr)} else {library(knitr)}
+if (!require(captioner)) {install.packages('captioner')
+  library(captioner)} else {library(captioner)}
+if (!require(olsrr)) {install.packages('olsrr')
+  library(olsrr)} else {library(olsrr)}
+if (!require(tseries)) {install.packages('tseries')
+  library(tseries)} else {library(tseries)}
+if (!require(xts)) {install.packages('xts')
+  library(xts)} else {library(xts)}
+if (!require(lmtest)) {install.packages('lmtest')
+  library(lmtest)} else {library(lmtest)}
+if (!require(sandwich)) {install.packages('sandwich')
+  library(sandwich)} else {library(sandwich)}
+if (!require(estimatr)) {install.packages('estimatr')
+  library(estimatr)} else {library(estimatr)}
+if (!require(lubridate)) {install.packages('lubridate')
+  library(lubridate)} else {library(lubridate)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+
+
+table_nums <- captioner(prefix = "")
+# Se cargan los datos en el archivo si este se encuentra en la misma carpeta que el presente Rmarkdown:
+
+# Carga los datos desde la librería PoEdata
+data("capm4")
+
+# Convierte a fecha la columna correspondiente en los datos:
+capm4$date=ymd(capm4$date)
+
+
+```
+
+
+# Introducción
+
+En este ejercicio se estudiará el modelo capm. En específico la regresión auxiliar para poder calcular el riesgo "sistemático" (influencia o riesgo de mercado sobre el precio de una acción que cotiza en el mismo):
+
+$$r_{i,t}=\alpha+\beta\cdot r_{mkt_t}+\varepsilon_t$$
+Por favor, con los datos de la libreria PoEData (ya cargados en el cnhunk previo), calcule las regresiones para Disney (dis), General Electric (ge), General Motors (gm), IBM (ibm), Microsoft (msft) y Exxon Mobil (xom). Esto utilizando los datos de la variación porcentual del mercado (mkt).
+
+Como nota metodológica, el modelo CAPM se corre para primas de riesgo. Esto es, el rendimiento del mercado o la acción analizada menos la tasa libre de riesgo de ese día. Por tanto, deberá usted transformar los datos de rendimientos históricos a primas de riesgo históricas.
+
+Se le pide:
+
+1. Hacer las regresiones, libre de errores o con errores estándar que no incorporen errores. Se pide el análisis por cada caso (acción).
+2. Hacer una tabla de resumen de las regresiones.
+3. Concluir respecto a si las acciones tienen rendimientos superiores al mercado. Eso se aprecia con uno de los coeficientes del modelo de regresión. Si es el caso, decir qué acciones pagan rendimientos superiores al mercado.
+4. Concluir sobre qué acciones son las más riesgosas.
+
+$$E_r=\overline{\text{riskfree}_t}+[\overline{r_{mkt,t}}-\overline{\text{riskfree}_t}]\cdot \beta_{i}$$
+
+A continuación se presenta una forma alternativa de exponer las correlaciones y la interacción por pares de variables. Para fines del ejercicio, solo interesa la última columna. Esto es la influencia que el mercado tiene en cada acción:
+
+1. A continuación se hacen las regresiones, libre de errores o con errores estándar que no incorporen errores. 
+
+
+```{r disney}
+
+eq1="dis~mkt"
+disney=lm(eq1,data=capm4)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(disney)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(disney,~I(mkt^2),data=capm4)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(disney,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(disney),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(disney),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(disney)+2*(length(disney$coefficients)*(log(log(nrow(capm4))))),4)
+     
+
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(disney,vcov=NeweyWest(disney,verbose = T))
+
+
+# Sustituímos los errores estándar, valores t y p. values del modelo de regresión original por los de la estimación robusta y el resultado lo ponemos en stargazer:       
+
+stargazer(disney,type="text",report="vcst*p",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector), se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+```{r estim DIS NWW}
+
+nwregres<-coeftest(disney,vcov=NeweyWest(disney,verbose = T))
+
+nwregres
+```
+
+
+```{r general}
+
+eq2="ge~mkt"
+general=lm(eq2,data=capm4)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(general)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(general,~I(mkt^2),data=capm4)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(general,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(general),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(general),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(general)+2*(length(general$coefficients)*(log(log(nrow(capm4))))),4)
+     
+
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(general,vcov=NeweyWest(general,verbose = T))
+
+          
+
+stargazer(general,type="text",report="vcst*p",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector), se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+```{r gem}
+
+eq3="gm~mkt"
+gem=lm(eq3,data=capm4)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(gem)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(gem,~I(mkt^2),data=capm4)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(gem,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(gem),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(gem),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(gem)+2*(length(gem$coefficients)*(log(log(nrow(capm4))))),4)
+     
+
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(gem,vcov=NeweyWest(gem,verbose = T))
+
+          
+
+stargazer(gem,type="text",report="vcst*p",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector), se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+```{r ibm}
+
+eq4="ibm~mkt"
+cibm=lm(eq4,data=capm4)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(cibm)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(cibm,~I(mkt^2),data=capm4)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(cibm,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(cibm),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(cibm),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(cibm)+2*(length(cibm$coefficients)*(log(log(nrow(capm4))))),4)
+     
+
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(cibm,vcov=NeweyWest(cibm,verbose = T))
+
+          
+
+stargazer(cibm,type="text",report="vcst*p",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector), se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+
+```{r msft}
+
+eq5="msft~mkt"
+microsoft=lm(eq5,data=capm4)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(microsoft)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(microsoft,~I(mkt^2),data=capm4)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(microsoft,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(microsoft),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(microsoft),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(microsoft)+2*(length(microsoft$coefficients)*(log(log(nrow(capm4))))),4)
+     
+
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(microsoft,vcov=NeweyWest(microsoft,verbose = T))
+
+          
+
+stargazer(microsoft,type="text",report="vcst*p",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector), se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+```{r xom}
+
+eq6="xom~mkt"
+xomi=lm(eq6,data=capm4)
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+dw=c("Durbin-Watson",dwtest(xomi)$statistic)
+
+## Prueba de White para detectar hetero
+
+white=c("P-VALUE de White",bptest(xomi,~I(mkt^2),data=capm4)$p.value)
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+ML=c("Prueba M-L",bgtest(xomi,order=1)$p.value)
+
+
+#Se calcula la función de Akaike:
+AICvector=c("Akaike", round(AIC(xomi),4))
+
+
+
+# Se calcula el criterio de Schwarz para el modelo:
+
+
+BICvector=c("Schwarz", round(BIC(xomi),4))
+
+# Se calcula el criterio de HANNAN QUIN para el modelo :
+
+
+HQvector=c("HQ")
+     round(-2*logLik(xomi)+2*(length(xomi$coefficients)*(log(log(nrow(capm4))))),4)
+     
+
+
+# Estimadores robustos con el método de Newey-west:
+
+nwregres<-coeftest(xomi,vcov=NeweyWest(xomi,verbose = T))
+
+          
+
+stargazer(xomi,type="text",report="vcst*p",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector), se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+2. Se Hace una tabla de resumen de las regresiones.
+
+```{r regresion, results='asis', echo=FALSE, warning=FALSE, error=FALSE}
+
+
+dw=c("Durbin-Watson",round(dwtest(disney)$statistic,4),round(dwtest(general)$statistic,4),round(dwtest(gem)$statistic,4),round(dwtest(cibm)$statistic,4),round(dwtest(microsoft)$statistic,4),round(dwtest(xomi)$statistic,4))
+
+white=c("P-VALUE de White",round(bptest(disney,~I(mkt^2),data=capm4)$p.value,4),round(bptest(general,~I(mkt^2),data=capm4)$p.value,4),round(bptest(gem,~I(mkt^2),data=capm4)$p.value,4),round(bptest(cibm,~I(mkt^2),data=capm4)$p.value,4),round(bptest(microsoft,~I(mkt^2),data=capm4)$p.value,4),round(bptest(xomi,~I(mkt^2),data=capm4)$p.value,4))
+
+ML=c("Prueba M-L",round(bgtest(disney,order=1)$p.value,4),round(bgtest(general,order=1)$p.value,4),round(bgtest(gem,order=1)$p.value,4),round(bgtest(cibm,order=1)$p.value,4),round(bgtest(microsoft,order=1)$p.value,4),round(bgtest(xomi,order=1)$p.value,4))
+
+
+AICvector=c("Akaike",round(AIC(disney),4),round(AIC(general),4),round(AIC(gem),4),round(AIC(cibm),4),round(AIC(microsoft),4),round(AIC(xomi),4))
+
+BICvector=c("Schwarz",round(BIC(disney),4),round(BIC(general),4),round(BIC(gem),4),round(BIC(cibm),4),round(BIC(microsoft),4),round(BIC(xomi),4))
+
+HQvector=c("H-Q",
+round(-2*logLik(disney)+2*(length(disney$coefficients)*log(log(nrow(capm4)))),3), round(-2*logLik(general)+2*(length(general$coefficients)*log(log(nrow(capm4)))),3), round(-2*logLik(gem)+2*(length(gem$coefficients)*log(log(nrow(capm4)))),3),
+round(-2*logLik(cibm)+2*(length(cibm$coefficients)*log(log(nrow(capm4)))),3),
+round(-2*logLik(microsoft)+2*(length(microsoft$coefficients)*log(log(nrow(capm4)))),3),
+round(-2*logLik(xomi)+2*(length(xomi$coefficients)*log(log(nrow(capm4)))),3))
+
+
+
+
+stargazer(disney,general,gem,cibm,microsoft,xomi, type="html",report="vcst*p",title= "Modelo CAPM",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector),se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+
+
+
+
+
+3. A continuación se realizan las conclusiones respecto a si las acciones tienen rendimientos superiores al mercado. Eso se aprecia con uno de los coeficientes del modelo de regresión. Si es el caso, decir qué acciones pagan rendimientos superiores al mercado.
+
+
+Una vez corridas las regresiones correspondientes a las diferentes acciones del ejercio, se comprobó que ninguna tiene rendimientos superiores al mercado, debido a que su constante es igual o menor a cero. 
+
+
+4. Se concluye sobre qué acciones son las más riesgosas.
+
+En relación a este punto, me permito detallar en orden de riesgo las acciones del ejercicio debido a la beta obtenida:
+
+1) Microsoft      con 1.321
+2) General Motors con 1.270
+3) I.B.M.         con 1.190
+4) General E.     con 0.904  
+5) Disney         con 0.897
+6) XOM            con 0.416
+
+
+J.Enrique Lamadrid Bazán.

@@ -1,0 +1,324 @@
+---
+title: "Ejercicio en clase de autocorrelación o correlación serial"
+author: "Jorge Enrique Lamadrid B."
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+    html_document:
+    toc: TRUE
+    toc_float: TRUE
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require(devtools)) {install.packages('devtools')
+  library(devtools)} else {library(devtools)}
+if (!require(PoEdata)) {install_git("https://github.com/ccolonescu/PoEdata")
+  library(PoEdata)} else {library(PoEdata)}
+if (!require(openxlsx)) {install.packages('openxlsx')
+  library(openxlsx)} else {library(openxlsx)}
+if (!require(ggplot2)) {install.packages('ggplot2')
+  library(ggplot2)} else {library(ggplot2)}
+if (!require(GGally)) {install.packages('GGally')
+  library(GGally)} else {library(GGally)}
+if (!require(ggpubr)) {install.packages('ggpubr')
+  library(ggpubr)} else {library(ggpubr)}
+if (!require(knitr)) {install.packages('knitr')
+  library(knitr)} else {library(knitr)}
+if (!require(captioner)) {install.packages('captioner')
+  library(captioner)} else {library(captioner)}
+if (!require(olsrr)) {install.packages('olsrr')
+  library(olsrr)} else {library(olsrr)}
+if (!require(tseries)) {install.packages('tseries')
+  library(tseries)} else {library(tseries)}
+if (!require(xts)) {install.packages('xts')
+  library(xts)} else {library(xts)}
+if (!require(lmtest)) {install.packages('lmtest')
+  library(lmtest)} else {library(lmtest)}
+if (!require(sandwich)) {install.packages('sandwich')
+  library(sandwich)} else {library(sandwich)}
+if (!require(estimatr)) {install.packages('estimatr')
+  library(estimatr)} else {library(estimatr)}
+if (!require(lubridate)) {install.packages('lubridate')
+  library(lubridate)} else {library(lubridate)}
+if (!require(olsrr)) {install.packages('olsrr')
+  library(olsrr)} else {library(olsrr)}
+if (!require(stargazer)) {install.packages('stargazer')
+  library(stargazer)} else {library(stargazer)}
+
+
+# Carga los datos desde la librería PoEdata
+Datos=read.xlsx("https://www.dropbox.com/s/g3vs47k7xae72sj/AFORE.xlsx?raw=1")
+
+types="html"
+```
+
+
+# Introducción
+
+En este ejercicio se utilizarán los valores base 100 del histórico de una SIEFORE y de los principales índices de los tipos de activos en los que ha invertido. 
+
+La idea es hacer una regresión con la siguiente forma funcional:
+
+\begin{equation}
+\begin{array}{rl}
+\text{SIEFORE}_t= & \alpha+
+\beta_1\cdot \text{Acciones_MX}+\\
+& \beta_2\cdot \text{Bonos_gubernamentales}+
+\beta_3\cdot \text{Bonos_corporativos}+\\
+& \beta_4\cdot \text{Bonos_UMS}+
+\beta_5\cdot \text{Bonos_extranjeros}+ \\
+& \beta_6\cdot \text{Acciones_extranjeras}+
+\beta_7\cdot \text{Commodities}+
+\varepsilon_t
+\end{array}
+(\#eq:regresion1)
+\end{equation}
+
+Se le pide correr la regresión dada en \@ref(eq:regresion1) y detectar la presencia de errores del modelo de regresión. Si existen tales, deberá aplicar las correcciones pertinentes.
+
+El objetivo es llegar a un modelo final que explique el comportamiento desempeño de la SIEFORE estudiada. El modelo es ateórico, lo que le permite llegar a un modelo con las variables que expliquen el desempeño de la SIEFORE estudiada. También se le permite hacer transformaciones de variables como primeras diferencias o primeras diferencias de logaritmos para corregir errores como son la heteroscedasticidad o la correlación serial.
+
+Utilice y justifique el uso de los estimadores robustos. Solo use uno de los dos métodos estudiados en clase.
+
+En su revisión de resultados, presente una tabla de resumen que compare la regresión dada en \@ref(eq:regresion1) con la ecuación final. Se le pide en la tabla de salida incorporar el criterio de información de Akaike, Schwarz, Hannan-Quinn, el estadístico Durbin-Watson y las pruebas de White y L-M y las pruebas de normalidad con el estadístico Jarque-Bera y la Kolmogorov-Smirnov. 
+
+Las tablas deberán estar en Stargazer en versión HTML.
+
+
+#Se corre la regresión original de la Siefore:
+
+```{r regsiefore1}
+
+eq1="SIEFORE~Acciones_MX+Bonos_gubernamentales+Bonos_corporativos+Bonos_UMS+Bonos_extranjeros+Commodities"
+siefore1=lm(eq1,data=Datos)
+
+stargazer(siefore1, report="vc*s", type="html")
+
+```
+
+
+
+
+```{r prueba de vif1,echo=FALSE, results='asis',message=FALSE, error=FALSE, warning=FALSE }
+
+vif1=ols_vif_tol(siefore1)
+vif1
+
+```
+
+# A partir de la multicolinelidad detectada, corremos una 2a regresión eliminando la regresora de Bonos gubernamentales:
+
+```{r regsiefore2}
+
+eq2="SIEFORE~Acciones_MX+Bonos_corporativos+Bonos_UMS+Bonos_extranjeros+Commodities"
+siefore2=lm(eq2,data=Datos)
+
+stargazer(siefore2, report="vc*s", type="html")
+
+```
+
+
+```{r prueba de vif2,echo=FALSE, results='asis',message=FALSE, error=FALSE, warning=FALSE }
+
+vif2=ols_vif_tol(siefore2)
+vif2
+
+```
+
+
+
+
+
+# Como continúa la multicolinelidad , corremos una 3a regresión eliminando ahora la regresora de Bonos UMS:
+
+
+```{r regsiefore3}
+
+eq3="SIEFORE~Acciones_MX+Bonos_corporativos+Bonos_extranjeros+Commodities"
+siefore3=lm(eq3,data=Datos)
+
+stargazer(siefore3, report="vc*s", type="html")
+
+```
+
+
+
+
+
+```{r prueba de vif3,echo=FALSE, results='asis',message=FALSE, error=FALSE, warning=FALSE }
+
+vif3=ols_vif_tol(siefore3)
+vif3
+
+```
+
+
+
+# Como continúa la multicolinelidad , corremos una 4a regresión eliminando ahora la regresora de Bonos_corporativos:
+
+
+```{r regsiefore4}
+
+eq4="SIEFORE~Acciones_MX+Bonos_extranjeros+Commodities"
+siefore4=lm(eq4,data=Datos)
+
+stargazer(siefore4, report="vc*s", type="html")
+
+```
+
+
+
+
+
+
+
+```{r prueba de vif4,echo=FALSE, results='asis',message=FALSE, error=FALSE, warning=FALSE }
+
+vif4=ols_vif_tol(siefore4)
+vif4
+
+```
+
+
+
+
+Con el análisis anterior se puede apreciar que no hay multicolinealidad en niveles significativos, ahora se revisará la presencia de heteroscedasticidad.Por lo que se corre la prueba de Golfeld-Quant:
+
+
+```{r GQTEST}
+
+gqt=gqtest(siefore4)
+gqt
+
+```
+
+
+
+
+Como la prueba de Goldfeld-Quandt está sujeta al segmento que elegimos, y la elección del segmento, a su vez puede llevar a diferentes conclusiones respecto a la heteroscedasticidad, dejamos de lado esta prueba. Dado esto, se corre la prueba Breusch-Pagan-Godfrey, conocida también como prueba Breusch-Godfrey:
+
+```{r BGtest}
+
+bgt=bgtest(siefore4)
+bgt
+
+```
+
+
+
+
+
+La prueba sugiere la presencia de heteroscedasticidad, sin embargo, esta prueba regresa los residuales con las variables en su forma lineal. no incluye influencias cuadráticas, por tanto la prueba de White es preferible, ya que si los términos de la regresión auxiliar elevados al cuadrado no son significativos, el resultado del estadístico no es afectado y se tiene una prueba más amplia, veamos:
+
+
+
+
+```{r White}
+
+white=bptest(siefore4,~I(Acciones_MX^2)+I(Bonos_extranjeros^2)+I(Commodities^2)+I(Acciones_MX*Bonos_extranjeros)+I(Acciones_MX*Commodities)+I(Bonos_extranjeros*Commodities),data=Datos)
+white
+
+
+```
+
+Con esto la prueba de White, que incluye la relación lineal, la no lineal (cuadrática) y la influencia de la potencial multicolinealidad que quede, nos dice que existe heteroscedasticidad. Por tanto hay que corregirla. Como no se puede hacer más (quitar variables o transformarlas), las alternativas que quedan son o correr mínimos cuadrados generalizados(que tienen una interpretación abstracta), o corremos la regresión con estimadores robustos de White. Esto para reducir el efecto de heteroscedasticidad en el cálculo de los errores estandard:
+
+```{r white robust}
+
+library(sandwich)
+# Se calculan los estimadores robustos de white:
+regwhite=coeftest(siefore4,vcov. = vcovHC(siefore4,type="HC"))
+
+
+regwhite
+
+
+```
+
+
+
+
+
+
+##Estadístico de Durbin Watson para detectar autocorrelación 
+
+A continuación se corre el Estadístico de Durbin watson para detectar la autocorrelación en nuestro modelo siefore4:
+
+```{r DW}
+
+dw=c("Durbin-Watson",dwtest(siefore4)$statistic)
+dw
+
+```
+
+
+
+
+## Se corre la Prueba de Brush-Goofrey o multiplicadores lagrangeanos para comprobar que existe correlación serial.
+
+```{r multLG}
+
+
+ML=bgtest(siefore4,order=1)$p.value
+ML
+
+```
+
+
+```{r}
+nwregres<-coeftest(siefore4,vcov=NeweyWest(siefore4,verbose = T))
+
+nwregres
+```
+
+
+
+
+
+Se Hace una tabla de resumen de las regresiones.
+
+```{r regresion, results='asis', echo=FALSE, warning=FALSE, error=FALSE}
+
+
+dw=c("Durbin-Watson",round(dwtest(siefore1)$statistic,4),round(dwtest(siefore4)$statistic,4))
+
+
+white=c("P-VALUE de White",bptest(siefore1,~I(Acciones_MX^2)+I(Bonos_gubernamentales^2)+I(Bonos_corporativos^2)+I(Bonos_UMS^2)+I(Bonos_extranjeros^2)+I(Commodities^2)+I(Acciones_MX*Bonos_gubernamentales)+I(Acciones_MX*Bonos_corporativos)+I(Acciones_MX*Bonos_UMS)+I(Acciones_MX*Bonos_extranjeros)+I(Acciones_MX*Commodities)+I(Bonos_gubernamentales*Bonos_corporativos)+I(Bonos_gubernamentales*Bonos_UMS)+I(Bonos_gubernamentales*Bonos_extranjeros)+I(Bonos_gubernamentales*Commodities)+I(Bonos_UMS*Bonos_extranjeros)+I(Bonos_UMS*Commodities)+I(Bonos_extranjeros*Commodities),data=Datos)$p.value)
+
+
+
+white=c("P-VALUE de White",bptest(siefore4,~I(Acciones_MX^2)+I(Bonos_extranjeros^2)+I(Commodities^2)+I(Acciones_MX*Bonos_extranjeros)+I(Acciones_MX*Commodities)+I(Bonos_extranjeros*Commodities),data=Datos)$p.value)
+
+
+ML=c("Prueba M-L",round(bgtest(siefore1,order=1)$p.value,4),round(bgtest(siefore4,order=1)$p.value,4))
+
+
+AICvector=c("Akaike",round(AIC(siefore1),4),round(AIC(siefore4),4))
+
+BICvector=c("Schwarz",round(BIC(siefore1),4),round(BIC(siefore4),4))
+
+HQvector=c("H-Q",
+round(-2*logLik(siefore1)+2*(length(siefore1$coefficients)*log(log(nrow(Datos)))),3), round(-2*logLik(siefore4)+2*(length(siefore4$coefficients)*log(log(nrow(Datos)))),3))
+
+
+
+
+stargazer(siefore1,siefore4, type="html",report="vcst*p",title= "Modelo SIEFORE",add.lines= list(dw,white,ML,AICvector,BICvector,HQvector),se=list(nwregres[,2]),t=list(nwregres[,3]),p=list(nwregres[,4]))
+
+```
+
+
+
+CONCLUSIONES:
+
+Después de haber desarrollado el modelo de siefore con las regresoras que realmente impactan en su rendimiento, se llegó a la conclusión que solamente hay 3 regresoras que exlican el mejor desempeño de la afore. Por otra parte, se corrieron las pruebas necesarias para eliminar la multicolinelidad, así como la heterscedasticidad y la correlación serial. aplicando para ello las pruebas VIF, Golfeld-Quandt, Breusch-Pagan-Godfrey, prueba de White, Estimadores Robustos de White, Multiplicadores Lagrangeanos y los estimadores robustos de Newey-West.
+
+A partir de lo anterior se presenta la tabla final estableciendo el comparativo entre la regresión inicial vs la cuarta regresión, mismas a las que se les aplicó los criterios de información y que no obstante que la primer regresión considera una mejor explicación a partir de los criterios de información, también presenta diversos errores como multicolinealidad y heteroscedasticidad. Lo cual no sucede en la regresión número 4 ya que ha sido tratada y libre de multicolinealidad y con una expresión muy breve de heteroscedasticidad.
+
+Por lo que mi conclusión es que la regresión número 4 explica mejor el desempeño de la SIEFORE.
+
+Atentamente
+
+Enrique Lamadrid
